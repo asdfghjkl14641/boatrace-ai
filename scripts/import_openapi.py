@@ -218,15 +218,23 @@ def previews_to_conditions(data: dict) -> list[dict]:
         if not (d and stadium and race_number):
             continue
         s_name = stadium_name(stadium)
-        # previews.boats は {"1":{...}, "2":{...}} の dict 形式
-        boats = race.get("boats", {}) or {}
+        # previews.boats は日付によって list と dict の2形式がある。
+        #   - 古い日 (〜2025年頃): [{"racer_boat_number":1, ...}, ...] のlist
+        #   - 新しい日           : {"1": {"racer_boat_number":1, ...}, ...} のdict
+        # どちらでも lane は boat 自身の racer_boat_number から取り出すのが安全。
+        raw_boats = race.get("boats")
+        if isinstance(raw_boats, list):
+            boat_iter = raw_boats
+        elif isinstance(raw_boats, dict):
+            boat_iter = list(raw_boats.values())
+        else:
+            boat_iter = []
         display = [None] * 6
-        for k, b in boats.items():
-            try:
-                lane = int(k)
-            except (ValueError, TypeError):
+        for b in boat_iter:
+            if not isinstance(b, dict):
                 continue
-            if 1 <= lane <= 6 and isinstance(b, dict):
+            lane = b.get("racer_boat_number")
+            if isinstance(lane, int) and 1 <= lane <= 6:
                 display[lane - 1] = b.get("racer_exhibition_time")
         rows.append({
             "date": d, "stadium": stadium, "stadium_name": s_name,
