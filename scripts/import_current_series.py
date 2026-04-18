@@ -105,7 +105,7 @@ def rows_from_results(data: dict) -> list[tuple]:
 
 INSERT = """
 INSERT INTO current_series (date, stadium, stadium_name, racerid, race_number,
-                            boat_number, course, "ST", rank)
+                            boat_number, course, st, rank)
 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
 ON CONFLICT ON CONSTRAINT uq_current_series DO NOTHING
 ;

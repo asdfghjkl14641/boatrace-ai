@@ -336,7 +336,7 @@ ON CONFLICT ON CONSTRAINT uq_race_results DO UPDATE SET
 
 INSERT_SERIES = """
 INSERT INTO current_series (date, stadium, stadium_name, racerid, race_number,
-                            boat_number, course, "ST", rank)
+                            boat_number, course, st, rank)
 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
 ON CONFLICT ON CONSTRAINT uq_current_series DO NOTHING
 ;
