@@ -1,0 +1,73 @@
+# ============================================================
+# 毎日 深夜0時 (日本時間) に「前日分」のデータを取得するワークフロー
+# ------------------------------------------------------------
+# GitHub Actionsのcronは UTC のため、JST 00:00 = UTC 15:00 (前日)
+# ============================================================
+name: Daily boatrace fetch (JST 00:00)
+
+on:
+  schedule:
+    # 毎日 UTC 15:00 = 日本時間 翌日00:00 に実行
+    - cron: "0 15 * * *"
+  # 手動実行ボタンも用意 (Actions画面から)
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "取得する日付 (YYYY-MM-DD, 空なら昨日)"
+        required: false
+        default: ""
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350   # GitHub Actions上限360分より少し短く
+
+    env:
+      # GitHub SecretsからDB接続情報を注入 (コードには書かない)
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # タイムゾーンを日本時間に
+      TZ: Asia/Tokyo
+      # PythonのUnicode出力が壊れないように
+      PYTHONIOENCODING: utf-8
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: コードをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 をセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 依存ライブラリをインストール
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: DB使用量を事前チェック (80%超で警告)
+        continue-on-error: true
+        run: python -m scripts.check_db_usage
+
+      - name: 昨日分のデータを取得 (手動指定があればその日付)
+        run: |
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            python -m scripts.fetch_all --start "${{ github.event.inputs.date }}"
+          else
+            python -m scripts.fetch_all --yesterday
+          fi
+
+      - name: DB使用量を事後チェック
+        if: always()
+        continue-on-error: true
+        run: python -m scripts.check_db_usage
+
+      - name: ログをアーティファクトとして保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fetch-logs-${{ github.run_id }}
+          path: logs/
+          retention-days: 30
+          if-no-files-found: ignore

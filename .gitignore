@@ -1,0 +1,31 @@
+# 環境変数・接続情報 (絶対にGitにアップしない)
+.env
+.env.local
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+
+# ログファイル
+logs/
+*.log
+
+# 一時データ (取得したCSVなど、必要なら残す)
+data/
+*.csv
+
+# OS / エディタ
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
