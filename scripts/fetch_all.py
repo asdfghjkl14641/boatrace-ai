@@ -44,15 +44,22 @@ from scripts.stadiums import ALL_STADIUM_IDS, stadium_name
 # 設定
 # ------------------------------------------------------------
 # 各HTTPリクエスト間の最小待機秒数。
-# デフォルト 1.0 秒。環境変数 FETCH_INTERVAL_SEC で上書き可。
+# デフォルト 0.8 秒。環境変数 FETCH_INTERVAL_SEC で上書き可。
 # ブロックされたり異常が出た場合は 1.5〜2.0 まで戻すこと。
-REQUEST_INTERVAL_SEC = float(os.getenv("FETCH_INTERVAL_SEC", "1.0"))
+REQUEST_INTERVAL_SEC = float(os.getenv("FETCH_INTERVAL_SEC", "0.8"))
 MAX_RACES_PER_DAY = 12              # 1開催日あたりの最大レース数 (通常12)
 
+# ページ種類 (keyname) と、スクレイパー呼び出しのラッパー定義。
+# keyname は normalize() と raw_by_race が参照するキーに対応。
+# 3連単オッズは重い (120組) ため、デフォルトでは取得せず --with-trifecta 指定時のみ取得する。
+DEFAULT_PAGE_KEYS   = ("info", "conditions", "result", "winplace")          # 4種
+TRIFECTA_PAGE_KEYS  = ("info", "conditions", "result", "winplace", "trifecta")  # 5種
+
 # 1会場1日あたりの推定所要時間 (秒)。ETA表示に使用する参考値。
-# 内訳: 12レース × 5HTTPリクエスト × (interval + ネットワーク往復+パース 約6秒)。
-# GitHub Actions のほうがローカルより速い傾向。実測で調整可。
-ESTIMATED_SEC_PER_STADIUM = 60 * (REQUEST_INTERVAL_SEC + 6.0)
+# 内訳: 12レース × (ページ種類数) × (interval + ネットワーク往復+パース 約4秒)
+def _estimate_sec_per_stadium(with_trifecta: bool) -> float:
+    n_pages = len(TRIFECTA_PAGE_KEYS if with_trifecta else DEFAULT_PAGE_KEYS)
+    return 12 * n_pages * (REQUEST_INTERVAL_SEC + 4.0)
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 
 
@@ -180,51 +187,40 @@ def bulk_insert(conn, table: str, columns: list[str], rows: list[dict]) -> int:
 
 
 # ------------------------------------------------------------
-# 1レース分のデータ取得
-#   BoatraceScraper が内部で 1.5秒以上の間隔を自動確保するため、
-#   ここでの time.sleep は不要。失敗したセクションは None を入れて継続。
+# ページ種類ごとにまとめて取得する関数のディスパッチテーブル。
+#   1. 同じエンドポイントを連続取得することでボット検知されにくい。
+#   2. BoatraceScraper の keep-alive Session とキャッシュが活きやすい。
+# BoatraceScraper が内部で FETCH_INTERVAL_SEC 以上の間隔を自動確保する。
 # ------------------------------------------------------------
-def fetch_race(api: BoatraceScraper, d: date, stadium: int, race: int) -> dict:
-    """1レース分の生データを取得して辞書で返す。
-    キー: info / result / conditions / trifecta / winplace
+def _make_page_fetchers(api: BoatraceScraper, d: date, stadium: int) -> dict[str, callable]:
+    return {
+        "info":       lambda r: api.get_race_info(d, stadium, r),           # 出走表
+        "conditions": lambda r: api.get_just_before_info(d, stadium, r),    # 直前情報
+        "result":     lambda r: api.get_race_result(d, stadium, r),         # 結果
+        "winplace":   lambda r: api.get_odds_win_place_show(d, stadium, r), # 単勝・複勝
+        "trifecta":   lambda r: api.get_odds_trifecta(d, stadium, r),       # 3連単
+    }
+
+
+def fetch_pages_by_type(
+    api: BoatraceScraper, d: date, stadium: int,
+    race_numbers: list[int], page_keys: tuple[str, ...],
+) -> dict[int, dict[str, Any]]:
+    """ページ種類ごとに、全レース分をまとめて取得する。
+    戻り値: {race_number: {"info": raw, "conditions": raw, ...}, ...}
+    失敗したセクションは該当キーに None が入り、他は継続する。
     """
-    out: dict[str, Any] = {}
+    fetchers = _make_page_fetchers(api, d, stadium)
+    out: dict[int, dict[str, Any]] = {r: {k: None for k in page_keys} for r in race_numbers}
 
-    # A. 出走表
-    try:
-        out["info"] = api.get_race_info(d, stadium, race)
-    except Exception as e:
-        logging.warning(f"  [出走表 R{race}] 取得エラー: {e}")
-        out["info"] = None
-
-    # B. 直前情報
-    try:
-        out["conditions"] = api.get_just_before_info(d, stadium, race)
-    except Exception as e:
-        logging.warning(f"  [直前情報 R{race}] 取得エラー: {e}")
-        out["conditions"] = None
-
-    # C. 結果 (まだ締切前なら取得できない)
-    try:
-        out["result"] = api.get_race_result(d, stadium, race)
-    except Exception as e:
-        logging.warning(f"  [結果 R{race}] 取得エラー: {e}")
-        out["result"] = None
-
-    # D. 3連単オッズ
-    try:
-        out["trifecta"] = api.get_odds_trifecta(d, stadium, race)
-    except Exception as e:
-        logging.warning(f"  [3連単 R{race}] 取得エラー: {e}")
-        out["trifecta"] = None
-
-    # E. 単勝・複勝オッズ (boatrace.jpでは同じページに両方あるので1回で取得)
-    try:
-        out["winplace"] = api.get_odds_win_place_show(d, stadium, race)
-    except Exception as e:
-        logging.warning(f"  [単複オッズ R{race}] 取得エラー: {e}")
-        out["winplace"] = None
-
+    for key in page_keys:
+        fn = fetchers[key]
+        logging.info(f"  [{key}] {len(race_numbers)}レース分を取得中...")
+        for r in race_numbers:
+            try:
+                out[r][key] = fn(r)
+            except Exception as e:
+                logging.warning(f"    [{key} R{r}] 取得エラー: {e}")
     return out
 
 
@@ -436,7 +432,9 @@ COLUMNS = {
 # ------------------------------------------------------------
 # 1会場1日分の処理
 # ------------------------------------------------------------
-def process_stadium_day(api: BoatraceScraper, d: date, stadium: int) -> dict[str, int]:
+def process_stadium_day(
+    api: BoatraceScraper, d: date, stadium: int, with_trifecta: bool = False
+) -> dict[str, int]:
     """1会場1日分を取得してSupabaseに保存する。
     呼び出し元 (main) が事前に開催会場フィルタ済み前提。
     スクレイピング中はDB接続を張らず、INSERTの直前に開いて直後に閉じる。
@@ -447,17 +445,23 @@ def process_stadium_day(api: BoatraceScraper, d: date, stadium: int) -> dict[str
     # 開催会場は main() で事前フィルタ済み。全レース分 (1〜12) を試行し、
     # 存在しないレースは各APIコールで空データが返るので個別にスキップされる。
     race_numbers = list(range(1, MAX_RACES_PER_DAY + 1))
+    page_keys = TRIFECTA_PAGE_KEYS if with_trifecta else DEFAULT_PAGE_KEYS
 
-    # 2) 全レース分を取得 & 正規化 (この段階ではDB接続は不要)
+    # 2) ページ種類ごとに全レース分まとめて取得し、それから正規化
+    raw_by_race = fetch_pages_by_type(api, d, stadium, race_numbers, page_keys)
+
     buckets: dict[str, list[dict]] = {k: [] for k in COLUMNS.keys()}
     for r in race_numbers:
         try:
-            raw = fetch_race(api, d, stadium, r)
+            raw = raw_by_race[r]
+            # normalize() が期待する5キーを全て揃えておく (欠けていれば None)
+            for k in ("info", "conditions", "result", "trifecta", "winplace"):
+                raw.setdefault(k, None)
             rows = normalize(d, stadium, r, raw)
             for k, v in rows.items():
                 buckets[k].extend(v)
         except Exception as e:
-            logging.error(f"  R{r} 処理中に想定外エラー: {e}")
+            logging.error(f"  R{r} 正規化中に想定外エラー: {e}")
             logging.error(traceback.format_exc())
 
     # 3) DBへまとめてINSERT (接続は毎回開いて即閉じる)
@@ -504,6 +508,8 @@ def parse_args() -> argparse.Namespace:
                    help="会場IDをカンマ区切りで指定 (例: 12,24)。省略時は全24会場。")
     p.add_argument("--force", action="store_true",
                    help="既にDBにあっても再取得する (通常は不要)")
+    p.add_argument("--with-trifecta", action="store_true",
+                   help="3連単オッズも取得する (重いのでデフォルトはスキップ)")
     return p.parse_args()
 
 
@@ -541,7 +547,8 @@ def main() -> int:
 
     logging.info("=" * 60)
     logging.info(f"取得範囲: {start} 〜 {end}  /  指定会場: {user_stadium_ids}")
-    logging.info(f"リクエスト間隔: {REQUEST_INTERVAL_SEC:.2f} 秒")
+    logging.info(f"リクエスト間隔: {REQUEST_INTERVAL_SEC:.2f} 秒  /  3連単オッズ: "
+                 f"{'取得' if args.with_trifecta else 'スキップ'}")
     logging.info("=" * 60)
 
     api = BoatraceScraper(min_interval=REQUEST_INTERVAL_SEC)
@@ -587,13 +594,16 @@ def main() -> int:
 
     # --- ETA計算 & 表示 ---
     total_targets = len(pairs)
-    est_sec = int(total_targets * ESTIMATED_SEC_PER_STADIUM)
+    per_stadium_sec = _estimate_sec_per_stadium(args.with_trifecta)
+    est_sec = int(total_targets * per_stadium_sec)
     est_min = est_sec // 60
     if total_targets == 0:
         logging.info("★ 取得対象なし。終了します。")
         return 0
     logging.info("=" * 60)
-    logging.info(f"★ 取得対象: {total_targets} 会場日  /  推定所要時間: 約 {est_min} 分 "
+    logging.info(f"★ 取得対象: {total_targets} 会場日  /  "
+                 f"1会場あたり推定 {per_stadium_sec/60:.1f} 分  /  "
+                 f"合計 推定 約 {est_min} 分 "
                  f"({est_sec//3600}時間{(est_sec%3600)//60}分)")
     logging.info("=" * 60)
 
@@ -607,7 +617,7 @@ def main() -> int:
             bar.set_postfix_str(f"{d} / {stadium:02d} {stadium_name(stadium)}")
             try:
                 # DB接続はINSERT直前に張る (process_stadium_day内)
-                result = process_stadium_day(api, d, stadium)
+                result = process_stadium_day(api, d, stadium, args.with_trifecta)
                 if result:
                     processed += 1
                     for k, v in result.items():

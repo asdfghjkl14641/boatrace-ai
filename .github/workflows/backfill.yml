@@ -31,6 +31,11 @@ on:
         description: "会場ID (カンマ区切り。空なら全24会場)"
         required: false
         default: ""
+      with_trifecta:
+        description: "3連単オッズも取得する (重いが1回だけ取りたい時はON)"
+        type: boolean
+        required: false
+        default: true
 
 jobs:
   backfill:
@@ -42,7 +47,7 @@ jobs:
       TZ: Asia/Tokyo
       PYTHONIOENCODING: utf-8
       PYTHONUNBUFFERED: "1"
-      FETCH_INTERVAL_SEC: "1.0"
+      FETCH_INTERVAL_SEC: "0.8"
 
     steps:
       - name: コードをチェックアウト
@@ -68,6 +73,9 @@ jobs:
           ARGS="--start ${{ github.event.inputs.start }} --end ${{ github.event.inputs.end }}"
           if [ -n "${{ github.event.inputs.stadiums }}" ]; then
             ARGS="$ARGS --stadiums ${{ github.event.inputs.stadiums }}"
+          fi
+          if [ "${{ github.event.inputs.with_trifecta }}" = "true" ]; then
+            ARGS="$ARGS --with-trifecta"
           fi
           echo "Running: python -m scripts.fetch_all $ARGS"
           python -m scripts.fetch_all $ARGS

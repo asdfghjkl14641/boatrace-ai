@@ -31,7 +31,7 @@ jobs:
       PYTHONIOENCODING: utf-8
       PYTHONUNBUFFERED: "1"
       # リクエスト間隔 (秒)。ブロックや異常が出たら 1.5〜2.0 に上げる。
-      FETCH_INTERVAL_SEC: "1.0"
+      FETCH_INTERVAL_SEC: "0.8"
 
     steps:
       - name: コードをチェックアウト
