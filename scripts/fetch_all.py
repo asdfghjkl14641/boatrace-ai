@@ -43,8 +43,16 @@ from scripts.stadiums import ALL_STADIUM_IDS, stadium_name
 # ------------------------------------------------------------
 # 設定
 # ------------------------------------------------------------
-REQUEST_INTERVAL_SEC = 1.5          # 各HTTPリクエスト間の待機秒数 (絶対に短くしないこと)
+# 各HTTPリクエスト間の最小待機秒数。
+# デフォルト 1.0 秒。環境変数 FETCH_INTERVAL_SEC で上書き可。
+# ブロックされたり異常が出た場合は 1.5〜2.0 まで戻すこと。
+REQUEST_INTERVAL_SEC = float(os.getenv("FETCH_INTERVAL_SEC", "1.0"))
 MAX_RACES_PER_DAY = 12              # 1開催日あたりの最大レース数 (通常12)
+
+# 1会場1日あたりの推定所要時間 (秒)。ETA表示に使用する参考値。
+# 内訳: 12レース × 5HTTPリクエスト × (interval + ネットワーク往復+パース 約6秒)。
+# GitHub Actions のほうがローカルより速い傾向。実測で調整可。
+ESTIMATED_SEC_PER_STADIUM = 60 * (REQUEST_INTERVAL_SEC + 6.0)
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 
 
@@ -430,36 +438,15 @@ COLUMNS = {
 # ------------------------------------------------------------
 def process_stadium_day(api: BoatraceScraper, d: date, stadium: int) -> dict[str, int]:
     """1会場1日分を取得してSupabaseに保存する。
+    呼び出し元 (main) が事前に開催会場フィルタ済み前提。
     スクレイピング中はDB接続を張らず、INSERTの直前に開いて直後に閉じる。
     (Supabase のアイドルタイムアウトで切れるのを避けるため)"""
     s_name = stadium_name(stadium)
     logging.info(f"▶ {d} / {stadium:02d} {s_name} の取得開始")
 
-    # 1) 開催確認 (スクレイパー内部で1.5秒間隔を確保)
-    try:
-        races = api.get_12races(d, stadium)
-    except Exception as e:
-        logging.warning(f"  開催情報取得失敗 → スキップ: {e}")
-        return {}
-
-    if not races:
-        logging.info(f"  開催なし → スキップ")
-        return {}
-
-    # レース番号の候補 (races が dict なら key、list/int なら1〜12)
-    if isinstance(races, dict):
-        race_numbers = []
-        for k in races.keys():
-            # "1R", "race1", "1" 等から数字を抽出
-            m = re.search(r"\d+", str(k))
-            if m:
-                race_numbers.append(int(m.group()))
-        race_numbers = sorted(set(race_numbers))
-    else:
-        race_numbers = list(range(1, MAX_RACES_PER_DAY + 1))
-
-    if not race_numbers:
-        race_numbers = list(range(1, MAX_RACES_PER_DAY + 1))
+    # 開催会場は main() で事前フィルタ済み。全レース分 (1〜12) を試行し、
+    # 存在しないレースは各APIコールで空データが返るので個別にスキップされる。
+    race_numbers = list(range(1, MAX_RACES_PER_DAY + 1))
 
     # 2) 全レース分を取得 & 正規化 (この段階ではDB接続は不要)
     buckets: dict[str, list[dict]] = {k: [] for k in COLUMNS.keys()}
@@ -546,14 +533,15 @@ def main() -> int:
         logging.error(f"--start ({start}) が --end ({end}) より後です")
         return 2
 
-    # 対象会場
+    # 対象会場 (ユーザーが指定した集合)
     if args.stadiums.strip():
-        stadium_ids = [int(x) for x in args.stadiums.split(",") if x.strip()]
+        user_stadium_ids = [int(x) for x in args.stadiums.split(",") if x.strip()]
     else:
-        stadium_ids = ALL_STADIUM_IDS
+        user_stadium_ids = ALL_STADIUM_IDS
 
     logging.info("=" * 60)
-    logging.info(f"取得範囲: {start} 〜 {end}  /  会場: {stadium_ids}")
+    logging.info(f"取得範囲: {start} 〜 {end}  /  指定会場: {user_stadium_ids}")
+    logging.info(f"リクエスト間隔: {REQUEST_INTERVAL_SEC:.2f} 秒")
     logging.info("=" * 60)
 
     api = BoatraceScraper(min_interval=REQUEST_INTERVAL_SEC)
@@ -569,8 +557,45 @@ def main() -> int:
             conn.close()
     logging.info(f"既取得済みの (date, stadium) 組合せ: {len(existing)} 件")
 
-    # 進捗バー用に (date, stadium) のペアを列挙
-    pairs = [(d, s) for d in daterange(start, end) for s in stadium_ids]
+    # --- 開催会場を事前取得して、非開催会場は完全にスキップ ---
+    # 日付ごとに1リクエストだけ投げて、その日開催している会場IDを得る。
+    # これで非開催会場には1リクエストも送らずに済む。
+    logging.info("開催会場の事前チェック中...")
+    pairs: list[tuple[date, int]] = []
+    open_stadiums_by_date: dict[date, list[int]] = {}
+    for d in daterange(start, end):
+        try:
+            open_ids = api.get_open_stadiums(d)
+        except Exception as e:
+            logging.warning(f"  {d} の開催情報取得失敗 (フォールバックで全指定会場を試行): {e}")
+            open_ids = user_stadium_ids
+        # ユーザー指定 ∩ その日の開催会場 から、既取得は除外
+        todo = [s for s in user_stadium_ids if s in open_ids and (d, s) not in existing]
+        skipped_today = [s for s in user_stadium_ids
+                         if s in open_ids and (d, s) in existing]
+        closed_today = [s for s in user_stadium_ids if s not in open_ids]
+
+        open_stadiums_by_date[d] = open_ids
+        names_todo = ", ".join(stadium_name(s) for s in todo) or "(なし)"
+        logging.info(
+            f"  {d}: 開催 {len(open_ids)}会場 / 取得対象 {len(todo)}会場 "
+            f"(既取得 {len(skipped_today)}, 非開催 {len(closed_today)})"
+        )
+        logging.info(f"     対象: {names_todo}")
+        for s in todo:
+            pairs.append((d, s))
+
+    # --- ETA計算 & 表示 ---
+    total_targets = len(pairs)
+    est_sec = int(total_targets * ESTIMATED_SEC_PER_STADIUM)
+    est_min = est_sec // 60
+    if total_targets == 0:
+        logging.info("★ 取得対象なし。終了します。")
+        return 0
+    logging.info("=" * 60)
+    logging.info(f"★ 取得対象: {total_targets} 会場日  /  推定所要時間: 約 {est_min} 分 "
+                 f"({est_sec//3600}時間{(est_sec%3600)//60}分)")
+    logging.info("=" * 60)
 
     totals: dict[str, int] = {k: 0 for k in COLUMNS.keys()}
     skipped = 0
@@ -580,9 +605,6 @@ def main() -> int:
     with tqdm(pairs, desc="取得中", unit="stadium-day") as bar:
         for d, stadium in bar:
             bar.set_postfix_str(f"{d} / {stadium:02d} {stadium_name(stadium)}")
-            if (d, stadium) in existing:
-                skipped += 1
-                continue
             try:
                 # DB接続はINSERT直前に張る (process_stadium_day内)
                 result = process_stadium_day(api, d, stadium)
@@ -590,6 +612,8 @@ def main() -> int:
                     processed += 1
                     for k, v in result.items():
                         totals[k] = totals.get(k, 0) + v
+                else:
+                    skipped += 1
             except Exception as e:
                 errors += 1
                 logging.error(f"✖ {d} / {stadium} で致命的エラー: {e}")

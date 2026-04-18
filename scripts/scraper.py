@@ -100,7 +100,29 @@ class BoatraceScraper:
         return BeautifulSoup(resp.text, "lxml")
 
     # ============================================================
-    # 1. 開催確認
+    # 0. 当日の開催会場一覧 (1回のリクエストで全24会場分を判定)
+    # ============================================================
+    def get_open_stadiums(self, d: date_cls) -> list[int]:
+        """指定日に開催している会場IDのリストを返す。
+        /owpc/pc/race/index?hd=YYYYMMDD を1回だけ取得してパースする。
+        非開催会場を事前に除外することで、無駄なリクエストを大幅削減できる。
+        """
+        try:
+            soup = self._get_soup("index", hd=_fmt_date(d))
+        except requests.RequestException:
+            return []
+        # ページ上の会場リンクに ?jcd=NN が含まれるので、そこから抽出
+        ids: set[int] = set()
+        for a in soup.find_all("a", href=True):
+            m = re.search(r"jcd=(\d+)", a["href"])
+            if m:
+                n = int(m.group(1))
+                if 1 <= n <= 24:
+                    ids.add(n)
+        return sorted(ids)
+
+    # ============================================================
+    # 1. 開催確認 (個別確認用。通常は get_open_stadiums を使う)
     # ============================================================
     def get_12races(self, d: date_cls, stadium: int) -> dict:
         """その日・その会場で開催しているか判定。
