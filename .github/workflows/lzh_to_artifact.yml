@@ -86,17 +86,19 @@ jobs:
             --end   "${{ github.event.inputs.end }}"
 
       - name: artifact.db を VACUUM して圧縮
+        if: always()
         run: |
           python -c "
-          import sqlite3
-          conn = sqlite3.connect('artifact.db')
-          conn.execute('VACUUM')
-          conn.close()
-          import os
-          print(f'final size: {os.path.getsize(\"artifact.db\")/1024/1024:.2f} MB')
-          "
+          import sqlite3, os
+          if os.path.exists('artifact.db'):
+              conn = sqlite3.connect('artifact.db')
+              conn.execute('VACUUM')
+              conn.close()
+              print(f'final size: {os.path.getsize(\"artifact.db\")/1024/1024:.2f} MB')
+          " || true
 
-      - name: アーティファクトとしてアップロード
+      - name: アーティファクトとしてアップロード (失敗・キャンセル時もアップ)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: boatrace-lzh-${{ github.event.inputs.start }}-${{ github.event.inputs.end }}
@@ -104,6 +106,7 @@ jobs:
             artifact.db
             logs/
           retention-days: 30
+          if-no-files-found: ignore
 
       - name: ログをサマリに
         if: always()
