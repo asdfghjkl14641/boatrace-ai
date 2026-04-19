@@ -29,3 +29,10 @@ data/
 Thumbs.db
 .vscode/
 .idea/
+
+# SQLite ローカルDB (サイズ大のため通常は Git に含めない。
+# 必要ならLFSで管理するか、明示的に削除)
+boatrace.db
+boatrace.db-journal
+boatrace.db-wal
+boatrace.db-shm

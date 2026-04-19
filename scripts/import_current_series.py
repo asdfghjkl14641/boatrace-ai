@@ -103,11 +103,14 @@ def rows_from_results(data: dict) -> list[tuple]:
     return rows
 
 
-INSERT = """
+from scripts.db import placeholder as _ph
+_PH = _ph()
+
+INSERT = f"""
 INSERT INTO current_series (date, stadium, stadium_name, racerid, race_number,
                             boat_number, course, st, rank)
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-ON CONFLICT ON CONSTRAINT uq_current_series DO NOTHING
+VALUES ({_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH})
+ON CONFLICT (date, stadium, racerid, race_number) DO NOTHING
 ;
 """
 

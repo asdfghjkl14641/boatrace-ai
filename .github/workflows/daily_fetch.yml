@@ -1,21 +1,29 @@
 # ============================================================
 # 毎日 深夜0時 (日本時間) に「前日分」のデータを取得するワークフロー
 # ------------------------------------------------------------
-# GitHub Actionsのcronは UTC のため、JST 00:00 = UTC 15:00 (前日)
+# 【注意】
+#   SQLite移行後はこのワークフローは「手動実行のみ」になっている。
+#   理由: データ保存先がローカル boatrace.db に切り替わり、
+#         GitHub Actions から直接ローカルDBに書けなくなったため。
+#   ローカル運用: run_daily.bat を Windows タスクスケジューラに登録して毎日実行。
+#   Supabaseに書き戻すなら下記 schedule をコメント解除し、
+#   DB_MODE=supabase を env に追加してください。
 # ============================================================
-name: Daily boatrace fetch (JST 00:00)
+name: Daily boatrace fetch (manual only)
 
 on:
-  schedule:
-    # 毎日 UTC 15:00 = 日本時間 翌日00:00 に実行
-    - cron: "0 15 * * *"
-  # 手動実行ボタンも用意 (Actions画面から)
+  # schedule:
+  #   - cron: "0 15 * * *"  # UTC 15:00 = JST 00:00 (disabled: SQLite移行のため)
   workflow_dispatch:
     inputs:
       date:
         description: "取得する日付 (YYYY-MM-DD, 空なら昨日)"
         required: false
         default: ""
+      db_mode:
+        description: "保存先 (supabase/sqlite)。sqlite はGH Actionsでは無意味なのでsupabaseに限る"
+        required: false
+        default: "supabase"
 
 jobs:
   fetch:
@@ -32,6 +40,7 @@ jobs:
       PYTHONUNBUFFERED: "1"
       # リクエスト間隔 (秒)。ブロックや異常が出たら 1.5〜2.0 に上げる。
       FETCH_INTERVAL_SEC: "0.8"
+      DB_MODE: ${{ github.event.inputs.db_mode || 'supabase' }}
 
     steps:
       - name: コードをチェックアウト

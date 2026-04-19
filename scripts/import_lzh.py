@@ -321,24 +321,30 @@ def parse_k_text(text: str) -> list[dict]:
 #   race_results: UPSERT (time/time_sec が NULL の既存行は埋める)
 #   current_series: ON CONFLICT DO NOTHING
 # ------------------------------------------------------------
-UPSERT_RESULTS = """
+# SQLite/Postgres 両対応: ON CONFLICT は制約名でなく列指定で書く。
+# EXCLUDED は lowercase 'excluded' で両方が受理する。
+from scripts.db import placeholder as _ph
+
+_PH = _ph()
+
+UPSERT_RESULTS = f"""
 INSERT INTO race_results (date, stadium, stadium_name, race_number,
                           rank, boat, racerid, name, time, time_sec)
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-ON CONFLICT ON CONSTRAINT uq_race_results DO UPDATE SET
-    time     = COALESCE(race_results.time,     EXCLUDED.time),
-    time_sec = COALESCE(race_results.time_sec, EXCLUDED.time_sec),
-    rank     = COALESCE(race_results.rank,     EXCLUDED.rank),
-    racerid  = COALESCE(race_results.racerid,  EXCLUDED.racerid),
-    name     = COALESCE(race_results.name,     EXCLUDED.name)
+VALUES ({_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH})
+ON CONFLICT (date, stadium, race_number, boat) DO UPDATE SET
+    time     = COALESCE(race_results.time,     excluded.time),
+    time_sec = COALESCE(race_results.time_sec, excluded.time_sec),
+    rank     = COALESCE(race_results.rank,     excluded.rank),
+    racerid  = COALESCE(race_results.racerid,  excluded.racerid),
+    name     = COALESCE(race_results.name,     excluded.name)
 ;
 """
 
-INSERT_SERIES = """
+INSERT_SERIES = f"""
 INSERT INTO current_series (date, stadium, stadium_name, racerid, race_number,
                             boat_number, course, st, rank)
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-ON CONFLICT ON CONSTRAINT uq_current_series DO NOTHING
+VALUES ({_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH}, {_PH})
+ON CONFLICT (date, stadium, racerid, race_number) DO NOTHING
 ;
 """
 
