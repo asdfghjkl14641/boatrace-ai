@@ -1,0 +1,181 @@
+# ============================================================
+# kyotei.murao111.net A-2 スクレイピング (手動実行, artifact 方式)
+# ------------------------------------------------------------
+# 目的:
+#   - ローカル PC を長時間占有せず、GH Actions (Ubuntu) で 2〜3 時間走らせる。
+#   - 出力は artifact.db (SQLite) としてアップロード。
+#   - ダウンロード後、ローカルで `python -m scripts.merge_kyotei_murao artifact.db`
+#     を実行して boatrace.db にマージする。
+#
+# 既存の lzh_to_artifact.yml と同じパターン:
+#   "build artifact.db on Actions, download locally, merge."
+#
+# 事前条件:
+#   - kyotei_murao_scraper.py が main に存在
+#   - apply_migration_004.py が main に存在
+#   - sql/sqlite_schema.sql が存在
+#
+# 実行手順:
+#   1. Actions タブ → "kyotei.murao111 A-2 scraping"
+#   2. Run workflow → from_date / to_date / parallel を確認
+#   3. 2〜3 時間後完了 (進捗は Summary + logs artifact で確認)
+#   4. ローカル:
+#        # artifact ダウンロード後、展開して:
+#        python -m scripts.merge_kyotei_murao path/to/artifact.db
+# ============================================================
+name: kyotei.murao111 A-2 scraping
+
+on:
+  workflow_dispatch:
+    inputs:
+      from_date:
+        description: "開始日 YYYY-MM-DD"
+        required: true
+        default: "2025-08-01"
+      to_date:
+        description: "終了日 YYYY-MM-DD"
+        required: true
+        default: "2026-04-18"
+      parallel:
+        description: "並列ワーカー数"
+        required: true
+        default: "2"
+        type: choice
+        options: ["1", "2", "3"]
+      sleep_min:
+        description: "最小リクエスト間隔秒"
+        required: false
+        default: "3.0"
+      sleep_max:
+        description: "最大リクエスト間隔秒"
+        required: false
+        default: "5.0"
+      data_types:
+        description: "取得データ種別 (カンマ区切り。空で全部)"
+        required: false
+        default: ""
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350        # GH Actions 上限 360 分よりやや短く
+
+    env:
+      # 本命: GH Actions 上では artifact.db に書き、ローカル boatrace.db は触らない
+      DB_MODE: sqlite
+      SQLITE_PATH: artifact.db
+      TZ: Asia/Tokyo
+      PYTHONIOENCODING: utf-8
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: コードをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 をセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 依存ライブラリをインストール
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 空の artifact.db を作成 (schema + migration 004)
+        run: |
+          rm -f artifact.db
+          python -c "
+          import sqlite3
+          conn = sqlite3.connect('artifact.db')
+          with open('sql/sqlite_schema.sql', encoding='utf-8') as f:
+              conn.executescript(f.read())
+          conn.commit(); conn.close()
+          print('base schema applied')
+          "
+          python -m scripts.apply_migration_004
+
+      - name: 実行サマリを出力 (取得前)
+        run: |
+          echo "### 実行条件" >> $GITHUB_STEP_SUMMARY
+          echo "| 項目 | 値 |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| from_date | ${{ inputs.from_date }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| to_date | ${{ inputs.to_date }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| parallel | ${{ inputs.parallel }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| sleep | ${{ inputs.sleep_min }}〜${{ inputs.sleep_max }}s |" >> $GITHUB_STEP_SUMMARY
+          echo "| data_types | ${{ inputs.data_types }} (空なら全部) |" >> $GITHUB_STEP_SUMMARY
+
+      - name: スクレイピング実行
+        run: |
+          ARGS="--from-date ${{ inputs.from_date }} --to-date ${{ inputs.to_date }}"
+          ARGS="$ARGS --parallel ${{ inputs.parallel }}"
+          ARGS="$ARGS --sleep-min ${{ inputs.sleep_min }} --sleep-max ${{ inputs.sleep_max }}"
+          if [ -n "${{ inputs.data_types }}" ]; then
+            ARGS="$ARGS --data-types ${{ inputs.data_types }}"
+          fi
+          echo "Running: python -m scripts.kyotei_murao_scraper $ARGS"
+          python -m scripts.kyotei_murao_scraper $ARGS
+
+      - name: artifact.db を VACUUM して圧縮
+        if: always()
+        run: |
+          python -c "
+          import sqlite3, os
+          if os.path.exists('artifact.db'):
+              conn = sqlite3.connect('artifact.db')
+              conn.execute('VACUUM')
+              conn.close()
+              print(f'final size: {os.path.getsize(\"artifact.db\")/1024/1024:.2f} MB')
+          " || true
+
+      - name: artifact.db 集計を Summary に出力
+        if: always()
+        run: |
+          echo "### 取得結果サマリ" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| テーブル | 行数 | ユニークレース |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---:|---:|" >> $GITHUB_STEP_SUMMARY
+          python - <<'PY' >> $GITHUB_STEP_SUMMARY
+          import sqlite3, os
+          if not os.path.exists("artifact.db"):
+              print("(artifact.db not found)")
+          else:
+              conn = sqlite3.connect("artifact.db")
+              for t in ("trifecta_odds","odds_exacta","odds_quinella","odds_trio","race_meta_murao"):
+                  try:
+                      n = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+                      r = conn.execute(
+                          f"SELECT COUNT(DISTINCT date||'-'||stadium||'-'||race_number) FROM {t}"
+                      ).fetchone()[0]
+                      print(f"| {t} | {n:,} | {r:,} |")
+                  except Exception as e:
+                      print(f"| {t} | (err: {e}) | - |")
+              conn.close()
+          PY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 次の手順" >> $GITHUB_STEP_SUMMARY
+          echo "1. \`kyotei-murao-artifact-*\` を Actions の画面からダウンロード" >> $GITHUB_STEP_SUMMARY
+          echo "2. zip を展開すると \`artifact.db\` が入っている" >> $GITHUB_STEP_SUMMARY
+          echo "3. ローカルで: \`python -m scripts.merge_kyotei_murao path/to/artifact.db\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: artifact.db をアーティファクトとしてアップロード
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kyotei-murao-artifact-${{ inputs.from_date }}-${{ inputs.to_date }}
+          path: artifact.db
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: ログと進捗 JSON もアップロード
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kyotei-murao-logs-${{ inputs.from_date }}-${{ inputs.to_date }}
+          path: |
+            logs/
+            scripts/kyotei_murao_progress.json
+          retention-days: 30
+          if-no-files-found: ignore
