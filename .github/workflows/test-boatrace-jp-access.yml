@@ -1,0 +1,126 @@
+# ============================================================
+# boatrace.jp へ GH Actions ランナーからアクセスできるか事前確認
+# (race_conditions backfill を GH Actions で走らせる前の一回限りのテスト)
+#
+# 手動実行のみ、結果は GITHUB_STEP_SUMMARY に出力
+# ============================================================
+name: Test boatrace.jp access from GH Actions
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      TZ: Asia/Tokyo
+      PYTHONIOENCODING: utf-8
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: 確認 1: 公式 TOP への 1 req (curl デフォルト UA)
+        id: test1
+        continue-on-error: true
+        run: |
+          echo "### 確認 1: curl デフォルト UA で公式 TOP に 1 req" >> $GITHUB_STEP_SUMMARY
+          URL="https://www.boatrace.jp/owpc/pc/race/index"
+          OUT=$(curl -s -o /tmp/body1.html -w "HTTP=%{http_code} size=%{size_download} time=%{time_total}s\n" "$URL" || true)
+          echo "URL: $URL" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "$OUT" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "body head 500 chars:" >> $GITHUB_STEP_SUMMARY
+          head -c 500 /tmp/body1.html >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: 確認 2: Chrome UA で公式 TOP に 1 req
+        id: test2
+        continue-on-error: true
+        run: |
+          echo "### 確認 2: Chrome UA で同 URL" >> $GITHUB_STEP_SUMMARY
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+          URL="https://www.boatrace.jp/owpc/pc/race/index"
+          OUT=$(curl -s -o /tmp/body2.html -w "HTTP=%{http_code} size=%{size_download} time=%{time_total}s\n" -A "$UA" "$URL" || true)
+          echo "URL: $URL" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "$OUT" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "body head 500 chars:" >> $GITHUB_STEP_SUMMARY
+          head -c 500 /tmp/body2.html >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          # Cloudflare challenge / 403 検知
+          if grep -qi "cloudflare\|checking your browser\|cf-ray\|challenge" /tmp/body2.html; then
+            echo "⚠️  Cloudflare challenge detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 確認 3: 実際の race_conditions ページに 1 req
+        continue-on-error: true
+        run: |
+          echo "### 確認 3: race_conditions が載るページ beforeinfo に 1 req" >> $GITHUB_STEP_SUMMARY
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+          # 最近の実在レース (2026-04-18 住之江 12R)
+          URL="https://www.boatrace.jp/owpc/pc/race/beforeinfo?rno=12&jcd=12&hd=20260418"
+          OUT=$(curl -s -o /tmp/body3.html -w "HTTP=%{http_code} size=%{size_download} time=%{time_total}s\n" -A "$UA" "$URL" || true)
+          echo "URL: $URL" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "$OUT" >> $GITHUB_STEP_SUMMARY
+          echo "body head 500 chars:" >> $GITHUB_STEP_SUMMARY
+          head -c 500 /tmp/body3.html >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          if grep -qi "cloudflare\|checking your browser\|challenge" /tmp/body3.html; then
+            echo "⚠️  Cloudflare challenge detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 確認 4: レート耐性 — 10 req 1 秒間隔
+        continue-on-error: true
+        run: |
+          echo "### 確認 4: 10 req × 1 秒間隔 (Chrome UA, beforeinfo)" >> $GITHUB_STEP_SUMMARY
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          for i in $(seq 1 10); do
+            # 会場ID を 1..10 で変えつつ 2026-04-18 12R
+            URL="https://www.boatrace.jp/owpc/pc/race/beforeinfo?rno=12&jcd=$(printf '%02d' $i)&hd=20260418"
+            OUT=$(curl -s -o /dev/null -w "[$i] HTTP=%{http_code} size=%{size_download} time=%{time_total}s\n" -A "$UA" "$URL" || true)
+            echo "$OUT" >> $GITHUB_STEP_SUMMARY
+            sleep 1
+          done
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: 確認 5: Python requests (scraper 相当) で 1 req
+        continue-on-error: true
+        run: |
+          echo "### 確認 5: Python requests で取得 (本番 scraper と同じ ライブラリ)" >> $GITHUB_STEP_SUMMARY
+          python - <<'PY' >> $GITHUB_STEP_SUMMARY 2>&1
+          import sys, requests
+          H = {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+              "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          }
+          url = "https://www.boatrace.jp/owpc/pc/race/beforeinfo?rno=12&jcd=12&hd=20260418"
+          try:
+              r = requests.get(url, headers=H, timeout=30)
+              print(f"status={r.status_code} len={len(r.content)} elapsed={r.elapsed.total_seconds():.2f}s")
+              print(f"resp headers (subset):")
+              for k in ("Server","Content-Type","Content-Encoding","CF-Ray","X-Amz-Cf-Id"):
+                  if k in r.headers:
+                      print(f"  {k}: {r.headers[k]}")
+              print(f"--- body head 300 ---")
+              print(r.text[:300].replace("\\n"," "))
+          except Exception as e:
+              print(f"ERROR: {e}")
+          PY
+
+      - name: ヒット判定サマリ
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 判定ガイド" >> $GITHUB_STEP_SUMMARY
+          echo "- 確認 1〜5 すべて HTTP 200 + Japanese HTML 本文 → **(A) GH Actions から普通にアクセス可**" >> $GITHUB_STEP_SUMMARY
+          echo "- 確認 4 で 429 / 503 が混ざる → **(B) レート絞る必要**" >> $GITHUB_STEP_SUMMARY
+          echo "- 確認 1-5 のどこかで 403 / Cloudflare challenge が出る → **(C) ブロック (ローカル実行に切替)**" >> $GITHUB_STEP_SUMMARY
