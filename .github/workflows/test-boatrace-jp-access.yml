@@ -13,55 +13,46 @@ jobs:
         continue-on-error: true
         run: |
           URL="https://www.boatrace.jp/owpc/pc/race/index"
-          echo "### 1. curl default UA" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          curl -s -o /tmp/body1.html -w "HTTP=%{http_code} size=%{size_download} time=%{time_total}s url=$URL" "$URL" >> $GITHUB_STEP_SUMMARY 2>&1 || true
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "--- body head 400 ---" >> $GITHUB_STEP_SUMMARY
-          head -c 400 /tmp/body1.html >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "=== STEP1: default UA TOP ==="
+          curl -s -o /tmp/body1.html -w "HTTP=%{http_code} size=%{size_download} time=%{time_total}s url=$URL\n" "$URL" || true
+          echo "--- body head 300 ---"
+          head -c 300 /tmp/body1.html || true
+          echo ""
 
       - name: curl Chrome UA
         continue-on-error: true
         run: |
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36"
           URL="https://www.boatrace.jp/owpc/pc/race/index"
-          echo "### 2. curl Chrome UA (TOP)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          curl -s -o /tmp/body2.html -w "HTTP=%{http_code} size=%{size_download} time=%{time_total}s url=$URL" -A "$UA" "$URL" >> $GITHUB_STEP_SUMMARY 2>&1 || true
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "--- body head 400 ---" >> $GITHUB_STEP_SUMMARY
-          head -c 400 /tmp/body2.html >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          if grep -qi "cloudflare\|challenge" /tmp/body2.html; then echo "CLOUDFLARE_DETECTED" >> $GITHUB_STEP_SUMMARY; fi
+          echo "=== STEP2: Chrome UA TOP ==="
+          curl -s -o /tmp/body2.html -w "HTTP=%{http_code} size=%{size_download} time=%{time_total}s\n" -A "$UA" "$URL" || true
+          echo "--- body head 300 ---"
+          head -c 300 /tmp/body2.html || true
+          echo ""
+          if grep -qi "cloudflare\|challenge" /tmp/body2.html; then echo "CLOUDFLARE_DETECTED"; fi
 
       - name: curl beforeinfo page
         continue-on-error: true
         run: |
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36"
           URL="https://www.boatrace.jp/owpc/pc/race/beforeinfo?rno=12&jcd=12&hd=20260418"
-          echo "### 3. beforeinfo (race_conditions source)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          curl -s -o /tmp/body3.html -w "HTTP=%{http_code} size=%{size_download} time=%{time_total}s" -A "$UA" "$URL" >> $GITHUB_STEP_SUMMARY 2>&1 || true
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "--- body head 400 ---" >> $GITHUB_STEP_SUMMARY
-          head -c 400 /tmp/body3.html >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          if grep -qi "cloudflare\|challenge" /tmp/body3.html; then echo "CLOUDFLARE_DETECTED" >> $GITHUB_STEP_SUMMARY; fi
+          echo "=== STEP3: beforeinfo (race_conditions source) ==="
+          curl -s -o /tmp/body3.html -w "HTTP=%{http_code} size=%{size_download} time=%{time_total}s\n" -A "$UA" "$URL" || true
+          echo "--- body head 400 ---"
+          head -c 400 /tmp/body3.html || true
+          echo ""
+          if grep -qi "cloudflare\|challenge" /tmp/body3.html; then echo "CLOUDFLARE_DETECTED"; fi
+          # key-data sections that race_conditions scraper actually reads
+          grep -o "気象状況\|風向\|風速\|波高\|展示タイム" /tmp/body3.html | sort -u || true
 
       - name: rate test 10req x 1s
         continue-on-error: true
         run: |
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36"
-          echo "### 4. rate test (10 req, 1s interval)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "=== STEP4: 10 req 1s interval ==="
           for i in 1 2 3 4 5 6 7 8 9 10; do
             jcd=$(printf "%02d" $i)
             URL="https://www.boatrace.jp/owpc/pc/race/beforeinfo?rno=12&jcd=$jcd&hd=20260418"
-            curl -s -o /dev/null -w "[$i] HTTP=%{http_code} size=%{size_download} time=%{time_total}s jcd=$jcd\n" -A "$UA" "$URL" >> $GITHUB_STEP_SUMMARY 2>&1 || true
+            curl -s -o /dev/null -w "[$i] HTTP=%{http_code} size=%{size_download} time=%{time_total}s jcd=$jcd\n" -A "$UA" "$URL" || true
             sleep 1
           done
-          echo '```' >> $GITHUB_STEP_SUMMARY
