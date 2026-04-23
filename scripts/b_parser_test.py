@@ -78,6 +78,23 @@ check("global_in2nd", r["global_in2nd"], 27.78)
 check("local_win_pt", r["local_win_pt"], 5.07)
 check("local_in2nd", r["local_in2nd"], 32.09)
 
+# ===== Case 3b: 今節成績が分割されて >= 12 tokens でも旧形式判定 =====
+print("\n[Case 3b] 旧形式 (今節成績が分割される 12+ トークン)")
+# 山田丈: `6 6 64 7` で 4 トークンある
+line3b = "5 5104山田\u3000丈21福岡54B2 1.80  2.27 0.00  0.00 15 18.18 43 37.33 6 6 64       7"
+r = parse_boat_line(line3b)
+assert r is not None
+check("lane", r["lane"], 5)
+check("global_win_pt", r["global_win_pt"], 1.80)
+check("global_in2nd", r["global_in2nd"], 2.27)
+check("global_in3rd (NULL 旧)", r["global_in3rd"], None)
+check("local_win_pt", r["local_win_pt"], 0.00)
+check("local_in2nd", r["local_in2nd"], 0.00)
+check("motor (15 が正解)", r["motor"], 15)
+check("motor_in2nd", r["motor_in2nd"], 18.18)
+check("boat", r["boat"], 43)
+check("boat_in2nd", r["boat_in2nd"], 37.33)
+
 # ===== Case 4: 非艇行は None =====
 print("\n[Case 4] ヘッダ行/コメント行は None を返す")
 for nonbl in [

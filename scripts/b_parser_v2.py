@@ -123,10 +123,15 @@ def parse_boat_line(line: str) -> dict | None:
     tokens = [t for t in re.split(r"\s+", tail) if t]
     num_toks = [t for t in tokens if NUM_RE.match(t)]
 
-    # Detect format by numeric token count
+    # フォーマット判定: 旧形式は position 4 が motor_no (整数), 新形式は local_in2nd (小数)
+    # → num_toks[4] に "." があれば新形式、なければ旧形式
     n = len(num_toks)
-    if n >= 12:
-        # 新形式 (3率あり)
+    if n < 8:
+        return None  # 数値不足
+
+    is_new_format = n >= 12 and "." in num_toks[4]
+
+    if is_new_format:
         try:
             g_win = _to_float(num_toks[0]);  g_2nd = _to_float(num_toks[1])
             g_3rd = _to_float(num_toks[2])
@@ -138,8 +143,8 @@ def parse_boat_line(line: str) -> dict | None:
             b_3rd = _to_float(num_toks[11])
         except (IndexError, ValueError):
             return None
-    elif n >= 8:
-        # 旧形式 (3率なし, 2連率のみ)
+    else:
+        # 旧形式 (3率なし): g_win g_2nd l_win l_2nd motor_no m_2nd boat_no b_2nd [junk...]
         try:
             g_win = _to_float(num_toks[0]);  g_2nd = _to_float(num_toks[1])
             l_win = _to_float(num_toks[2]);  l_2nd = _to_float(num_toks[3])
@@ -148,8 +153,6 @@ def parse_boat_line(line: str) -> dict | None:
             g_3rd = l_3rd = m_3rd = b_3rd = None
         except (IndexError, ValueError):
             return None
-    else:
-        return None  # 数値不足
 
     return {
         "lane": lane,
