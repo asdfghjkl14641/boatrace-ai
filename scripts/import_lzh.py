@@ -170,6 +170,9 @@ def download_and_extract(d: date, session: requests.Session) -> str | None:
 # 本パーサは「日付、会場、レース番号」をステートフルに追い、
 # 空行またはヘッダ行で切り替える。
 # ------------------------------------------------------------
+# 2020-2023 フォーマット対応版 parser に差し替え
+from scripts.k_parser_v2 import parse_k_text as _parse_k_text_v2
+
 RE_DATE = re.compile(r"(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日")
 RE_DATE_SHORT = re.compile(r"(\d{4})/\s*(\d{1,2})/\s*(\d{1,2})")
 RE_RACE_HEADER = re.compile(r"\s*([0-9]{1,2})\s*R\s")
@@ -432,7 +435,7 @@ def main() -> int:
                 tot_404 += 1
                 continue
             try:
-                rows = parse_k_text(text)
+                rows = _parse_k_text_v2(text)
             except Exception as e:
                 logging.warning(f"  {d}: パース中エラー: {e}")
                 continue
