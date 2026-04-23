@@ -125,8 +125,10 @@ def download_and_extract_b(d: date, session: requests.Session) -> str | None:
 
 
 # ------------------------------------------------------------
-# パーサ
+# パーサ — 2020-2023 対応版に差し替え
 # ------------------------------------------------------------
+from scripts.b_parser_v2 import parse_b_text as parse_b_text_v2
+
 RE_DATE = re.compile(r"(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日")
 RE_DATE_SHORT = re.compile(r"(\d{4})/\s*(\d{1,2})/\s*(\d{1,2})")
 RE_RACE_HEADER = re.compile(r"\s*(\d{1,2})\s*[RＲ]\s")
@@ -353,7 +355,7 @@ def main() -> int:
                 continue
             try:
                 debug = not debug_done
-                rows = parse_b_text(text, debug=debug)
+                rows = parse_b_text_v2(text, debug=debug)
                 debug_done = True
             except Exception as e:
                 logging.warning(f"  {d}: パースエラー: {e}")
