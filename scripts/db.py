@@ -145,11 +145,12 @@ def _connect_sqlite() -> _ConnWrap:
     conn = sqlite3.connect(
         SQLITE_PATH,
         detect_types=sqlite3.PARSE_DECLTYPES,
-        timeout=30.0,
+        timeout=120.0,   # 並列 write 競合対策で延長
     )
-    # 高速化: WALモード + 同期弱め (単一プロセス利用ならOK)
+    # WAL + 書込競合対策
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA synchronous=NORMAL;")
+    conn.execute("PRAGMA busy_timeout=120000;")   # 120s waiting on writer lock
     conn.execute("PRAGMA foreign_keys=ON;")
     return _ConnWrap(conn, "sqlite")
 

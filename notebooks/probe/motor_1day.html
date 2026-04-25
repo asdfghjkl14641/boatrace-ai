@@ -1,0 +1,1358 @@
+<!doctype html>
+<html lang="ja">
+
+
+<head>
+        <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-81917611-2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+
+        function gtag() {
+            dataLayer.push(arguments);
+        }
+        gtag('js', new Date());
+
+        gtag('config', 'UA-81917611-2');
+    </script>
+        <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta http-equiv="Content-Language" content="en" />
+    <meta name="msapplication-TileColor" content="#2d89ef">
+    <meta name="theme-color" content="#4188c9">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="MobileOptimized" content="320">
+    <link rel="icon" type="image/png" href="./favicons/icon-192x192.png">
+    <link rel="apple-touch-icon" type="image/png" href="./favicons/apple-touch-icon-180x180.png">
+    <title>モーター出走履歴分析 | 競艇のデータ検索・分析サイト</title>
+    <meta name="keywords" content="ボートレース データ,競艇 データ,ボートレース 分析,競艇 分析">
+    <meta name="description" content="日付、グレード、枠、進入コース、天気など様々な条件でボートレースのモーター出走履歴を検索し、分析を行うことができます。">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,300i,400,400i,500,500i,600,600i,700,700i&amp;subset=latin-ext">
+    <script src="https://kyotei.murao111.net/assets/js/require.min.js"></script>
+    <script>
+        requirejs.config({
+            baseUrl: '.'
+        });
+    </script>
+    <script src="https://js.stripe.com/v3/"></script>
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.4/css/all.css">
+    <!-- Dashboard Core -->
+    <link href="https://kyotei.murao111.net/assets/css/dashboard.css" rel="stylesheet" />
+    <script src="https://kyotei.murao111.net/assets/js/dashboard.js"></script>
+    <!-- c3.js Charts Plugin -->
+    <link href="https://kyotei.murao111.net/assets/plugins/charts-c3/plugin.css" rel="stylesheet" />
+    <script src="https://kyotei.murao111.net/assets/plugins/charts-c3/plugin.js"></script>
+    <!-- Input Mask Plugin -->
+    <script src="https://kyotei.murao111.net/assets/plugins/input-mask/plugin.js"></script>
+    <!-- Datatables Plugin -->
+    <script src="https://kyotei.murao111.net/assets/plugins/datatables/plugin.js"></script>
+        <!-- 
+        The MIT License (MIT)
+        Copyright (c) 2018 Paweł Kuna
+        https://github.com/tabler/tabler/blob/master/LICENSE
+     -->
+</head>
+<div id="page_top"><a href="#"></a></div>
+
+<body class="">
+    <div id="overlay">
+        <div class="cv-spinner">
+            <span class="spinner"></span>
+        </div>
+    </div>
+    <div class="page">
+        <div class="flex-fill">
+            <div class="header py-4">
+  <div class="container">
+    <div class="d-flex">
+      <a class="header-brand" href="/">
+        <img src="https://kyotei.murao111.net/assets/images/browsers/logo.png" class="header-brand-img" alt="tabler logo">
+      </a>
+      <div class="d-flex order-lg-2 ml-auto">
+        <div class="dropdown">
+                    <a href="#" class="nav-link pr-0 leading-none" data-toggle="dropdown" aria-expanded="false">
+            <span class="avatar" style="background-image: url(./assets/images/icons/guest.png)"></span>
+            <span class="ml-2 d-none d-lg-block">
+              <span class="text-default">Guest Member</span>
+              <small class="text-muted d-block mt-1">ログイン・新規登録はこちら</small>
+            </span>
+          </a>
+          <div class="dropdown-menu dropdown-menu-right dropdown-menu-arrow" x-placement="bottom-end"
+            style="position: absolute; transform: translate3d(136px, 32px, 0px); top: 0px; left: 0px; will-change: transform;">
+            <a class="dropdown-item" href="/login">
+              <i class="dropdown-icon fe fe-log-in"></i> ログインする
+            </a>
+            <a class="dropdown-item" href="/register">
+              <i class="dropdown-icon fe fe-user-plus"></i> アカウントを新規登録する
+            </a>
+          </div>
+                  </div>
+      </div>
+      <a href="#" class="header-toggler d-lg-none ml-3 ml-lg-0" data-toggle="collapse"
+        data-target="#headerMenuCollapse">
+        <span class="header-toggler-icon"></span>
+      </a>
+    </div>
+  </div>
+</div>
+            <div class="header collapse d-lg-flex p-0" id="headerMenuCollapse">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg order-lg-first">
+        <ul class="nav nav-tabs border-0 flex-column flex-lg-row">
+          <li class="nav-item">
+            <a href="https://kyotei.murao111.net" class="nav-link ">
+              <i class="fe fe-home"></i> TOP
+            </a>
+          </li>
+          <li class="nav-item dropdown">
+            <a href="https://kyotei.murao111.net/races"
+              class="nav-link ">
+              <i class="fe fe-calendar"></i>今日のレース分析
+            </a>
+          </li>
+          <li class="nav-item dropdown">
+            <a href="javascript:void(0)"
+              class="nav-link "
+              data-toggle="dropdown">
+              <i class="fe fe-check-circle"></i>レース結果分析
+            </a>
+            <div class="dropdown-menu dropdown-menu-arrow">
+              <a href="https://kyotei.murao111.net/results"
+                class="dropdown-item ">レース結果集計分析</a>
+              <a href="https://kyotei.murao111.net/result_details"
+                class="dropdown-item ">レース結果詳細分析</a>
+            </div>
+          </li>
+          <li class="nav-item">
+            <a href="javascript:void(0)"
+              class="nav-link "
+              data-toggle="dropdown">
+              <i class="fa fa-money"></i>オッズ分析
+            </a>
+            <div class="dropdown-menu dropdown-menu-arrow">
+              <a href="https://kyotei.murao111.net/realtime_oddses"
+                class="dropdown-item ">リアルタイムオッズ分析</a>
+              <a href="https://kyotei.murao111.net/oddses"
+                class="dropdown-item ">過去オッズ分析</a>
+            </div>
+          </li>
+          <li class="nav-item dropdown">
+            <a href="javascript:void(0)"
+              class="nav-link "
+              data-toggle="dropdown">
+              <i class="fa fa-address-card"></i>選手分析
+            </a>
+            <div class="dropdown-menu dropdown-menu-arrow">
+              <a href="https://kyotei.murao111.net/players"
+                class="dropdown-item ">選手検索</a>
+              <a href="https://kyotei.murao111.net/player_records"
+                class="dropdown-item ">選手出走履歴</a>
+            </div>
+          </li>
+          <li class="nav-item">
+            <a href="https://kyotei.murao111.net/motor_records"
+              class="nav-link active">
+              <i class="fa fa-gears"></i>モーター分析
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="https://kyotei.murao111.net/boat_records"
+              class="nav-link ">
+              <i class="fa fa-ship"></i>ボート分析
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="https://kyotei.murao111.net/ranking_player"
+              class="nav-link ">
+              <i class="fa fa-list-ol"></i>ランキング
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="https://kyotei.murao111.net/mypage" class="nav-link ">
+              <i class="fe fe-user"></i>マイページ
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="https://kyotei.murao111.net/pricing" class="nav-link ">
+              <i class="fe fe-disc"></i>プラン一覧
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="http://9210.teacup.com/kyotei/bbs" target="_blank" class="nav-link">
+              <i class="fa fa-comments"></i>掲示板
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/contact" class="nav-link">
+              <i class="fa fa-send"></i>お問い合わせ
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="https://kyotei.murao111.net/donation" class="nav-link ">
+              <i class="fa fa-gift"></i>寄付
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+            <div class="my-3 my-md-5">
+                <div class="container">
+                    <div class="page-header">
+    <h1 class="page-title">
+        モーター出走履歴分析
+    </h1>
+</div>
+<div class="row">
+
+    <!-- 条件保存モーダル -->
+    <div class="modal fade" id="CreateKeepConditionModal" tabindex="-1" role="dialog" aria-labelledby="CreateKeepConditionModal" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="CreateKeepConditionModal">現在の検索条件を保存する</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="閉じる">
+          </button>
+        </div>
+        <div class="modal-body">
+          現在検索中の詳細検索条件が保存されます。<br />
+※以下の項目の条件は保存されません。<br />
+・開催場<br />
+・モーターNo<br />
+・対象期間<br />
+
+        </div>
+        <div class="modal-body">
+          <label class="form-label">条件名(50文字以内)</label>
+          <input type="text" name="keep_condition_name" class="form-control" placeholder="条件に名前をつけて入力してください">
+        </div>
+        <div class="modal-footer text-center">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">閉じる</button>
+          <button type="button" class="btn btn-primary create_keep_condition">検索条件を保存する</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- 条件適用モーダル -->
+    <div class="modal fade" id="ApplyKeepConditionModal" tabindex="-1" role="dialog"
+  aria-labelledby="ApplyKeepConditionModal" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="ApplyKeepConditionModal">保存した検索条件を適用する</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="閉じる">
+        </button>
+      </div>
+      <div class="modal-body">
+                保存された条件がありません。<br>
+        「検索条件を保存」ボタンから条件を保存してください。
+              </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <div id="DataTables_Table_1_wrapper" class="dataTables_wrapper no-footer">
+            <table class="table card-table  table-hover table-vcenter text-nowrap no-footer" role="grid">
+              <tbody>
+                              </tbody>
+            </table>
+          </div>
+        </div>
+              </div>
+      <div class="modal-footer text-center">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+    <div class="col-12">
+    <div class="alert alert-success  text-center" role="alert">
+        <i class="fe fe-bell mr-2" aria-hidden="true"></i>
+        広告なし、その他追加機能を使えるプレミアムプランがあります。<a href="/pricing">詳細はこちらから</a>
+        <i class="fe fe-bell mr-2" aria-hidden="true"></i>
+    </div>
+</div>
+
+    
+    <div class="col-12">
+        <form action="https://kyotei.murao111.net/motor_records" method="GET">
+            <div class="card">
+                <div class="card-status bg-blue"></div>
+                <div class="card-header">
+                    <h3 class="card-title">検索条件</h3>
+                    <div class="card-options">
+                        <a href="#" class="btn btn-pill btn-info btn-sm" aria-expanded="false" data-toggle="modal"
+                            data-target="#CreateKeepConditionModal">＋検索条件を保存</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label class="form-label">開催場</label>
+                                <select name="conditions[stadium_id]" id="conditions[stadium_id]" class="form-control ">
+            <option value="1" >01#桐　生</option>
+        <option value="2" >02#戸　田</option>
+        <option value="3" >03#江戸川</option>
+        <option value="4" >04#平和島</option>
+        <option value="5" >05#多摩川</option>
+        <option value="6" >06#浜名湖</option>
+        <option value="7" >07#蒲　郡</option>
+        <option value="8" >08#常　滑</option>
+        <option value="9" >09#　津　</option>
+        <option value="10" >10#三　国</option>
+        <option value="11" >11#琵琶湖</option>
+        <option value="12" selected>12#住之江</option>
+        <option value="13" >13#尼　崎</option>
+        <option value="14" >14#鳴　門</option>
+        <option value="15" >15#丸　亀</option>
+        <option value="16" >16#児　島</option>
+        <option value="17" >17#宮　島</option>
+        <option value="18" >18#徳　山</option>
+        <option value="19" >19#下　関</option>
+        <option value="20" >20#若　松</option>
+        <option value="21" >21#芦　屋</option>
+        <option value="22" >22#福　岡</option>
+        <option value="23" >23#唐　津</option>
+        <option value="24" >24#大　村</option>
+      </select>
+                              </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label class="form-label">モーターNo</label>
+                                <input type="text" name="conditions[motor_no]" id="conditions[motor_no]" class="form-control " placeholder=000 maxlength=3 value="">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">モーター使用期間の一覧</label>
+                                <select name="period_of_use" id="period_of_use" class="form-control ">
+            <option value="0" >開催場、ﾓｰﾀｰNoを指定してください</option>
+      </select>
+                              </div>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">検索対象期間(From/To)
+                                <i class="fa fa-question" data-toggle="tooltip" data-placement="right" title=""
+                                    data-original-title="モーターの使用期間に注意して指定ください。"></i>
+                            </label>
+                            <div class="form-group">
+                                <div class="row gutters-xs">
+  <div class="col-5">
+    <input type="date" min="2016-01-01" max="2026-04-20" name="conditions[race_date][from]" id="conditions[race_date][from]" class="form-control"   value="2026-04-18">
+  </div>
+  ～
+  <div class="col-5">
+    <input type="date" name="conditions[race_date][to]" id="conditions[race_date][to]" class="form-control"   value="2026-04-18">
+  </div>
+</div>
+                                <span class="invalid-feedback" style="display:block" id="not_within_range"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-2">
+                            <label class="form-label">　</label>
+                            <div class="form-group">
+                                <button type="submit" class="btn btn-primary ml-auto loading">入力した条件で検索</button>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">　</label>
+                            <div class="form-group">
+                                <a href="#" class="btn btn-primary" aria-expanded="false" data-toggle="modal"
+                                    data-target="#ApplyKeepConditionModal">保存条件を適用する</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                
+                <div class="col-md-12 text-center mb-3">
+    <div class="text-muted">[PR]</div>
+        
+    <a href="https://hb.afl.rakuten.co.jp/hsc/493bc3c8.828c307e.17b171a1.7600056e/?link_type=pict&ut=eyJwYWdlIjoic2hvcCIsInR5cGUiOiJwaWN0IiwiY29sIjoxLCJjYXQiOjEsImJhbiI6MjEzODQyOSwiYW1wIjpmYWxzZX0%3D" target="_blank" rel="nofollow sponsored noopener" style="word-wrap:break-word;"><img src="https://hbb.afl.rakuten.co.jp/hsb/493bc3c8.828c307e.17b171a1.7600056e/?me_id=2101064&me_adv_id=2138429&t=pict" border="0" style="margin:2px" alt="" title=""></a>
+    </div>
+            </div>
+
+            <div class="col-12">
+                <div class="alert alert-info text-center" role="alert">
+                    <i class="fe fe-arrow-down-circle"></i>詳細検索条件を指定することによってグラフの対象データを変更することができます。ぜひご活用ください！<i
+                        class="fe fe-arrow-down-circle"></i>
+                </div>
+            </div>
+
+            <div class="card card-collapsed">
+                <div class="card-status bg-teal"></div>
+                <div class="card-header">
+                    <h3 class="card-title">詳細検索条件</h3>
+                    <div class="card-options">
+                        <a href="#" class="card-options-collapse" data-toggle="card-collapse"><i
+                                class="fe fe-chevron-up"></i>表示／非表示</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="col-md-12" style="margin: 10px 0px;">
+                        <span class="tag">開催情報で検索して分析</span>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label class="form-label">グレード</label>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[grade_id][]" value=1 >
+    <span class="custom-control-label">
+            G1
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[grade_id][]" value=2 >
+    <span class="custom-control-label">
+            G2
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[grade_id][]" value=3 >
+    <span class="custom-control-label">
+            G3
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[grade_id][]" value=4 >
+    <span class="custom-control-label">
+            SG
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[grade_id][]" value=5 >
+    <span class="custom-control-label">
+            一般
+        </span>
+</label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label class="form-label">シリーズ</label>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[series_id][]" value=1 >
+    <span class="custom-control-label">
+            一般
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[series_id][]" value=2 >
+    <span class="custom-control-label">
+            新鋭|ルーキー
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[series_id][]" value=3 >
+    <span class="custom-control-label">
+            匠|マスターズ
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[series_id][]" value=4 >
+    <span class="custom-control-label">
+            レディース|ヴィーナス
+        </span>
+</label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label class="form-label">日程</label>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[schedule][]" value=1 >
+    <span class="custom-control-label">
+            1日目
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[schedule][]" value=2 >
+    <span class="custom-control-label">
+            2日目
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[schedule][]" value=3 >
+    <span class="custom-control-label">
+            3日目
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[schedule][]" value=4 >
+    <span class="custom-control-label">
+            4日目
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[schedule][]" value=5 >
+    <span class="custom-control-label">
+            5日目
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[schedule][]" value=6 >
+    <span class="custom-control-label">
+            6日目
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[schedule][]" value=7 >
+    <span class="custom-control-label">
+            7日目
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[schedule][]" value=8 >
+    <span class="custom-control-label">
+            8日目
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[schedule][]" value=9 >
+    <span class="custom-control-label">
+            9日目
+        </span>
+</label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label class="form-label">最終レース</label>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[last_race_type_id][]" value=1 >
+    <span class="custom-control-label">
+            予選
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[last_race_type_id][]" value=2 >
+    <span class="custom-control-label">
+            準優勝戦
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[last_race_type_id][]" value=3 >
+    <span class="custom-control-label">
+            優勝戦
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[last_race_type_id][]" value=4 >
+    <span class="custom-control-label">
+            一般|他
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[last_race_type_id][]" value=5 >
+    <span class="custom-control-label">
+            特賞|特選|選抜
+        </span>
+</label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label class="form-label">時間帯</label>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[time_zone_id][]" value=1 >
+    <span class="custom-control-label">
+            ﾃﾞｲ
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[time_zone_id][]" value=2 >
+    <span class="custom-control-label">
+            ﾅｲﾀｰ
+        </span>
+</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-12" style="margin: 10px 0px;">
+                        <span class="tag">レース情報で検索して分析</span>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">レースNo</label>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_no][]" value=1 >
+    <span class="custom-control-label">
+            1R
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_no][]" value=2 >
+    <span class="custom-control-label">
+            2R
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_no][]" value=3 >
+    <span class="custom-control-label">
+            3R
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_no][]" value=4 >
+    <span class="custom-control-label">
+            4R
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_no][]" value=5 >
+    <span class="custom-control-label">
+            5R
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_no][]" value=6 >
+    <span class="custom-control-label">
+            6R
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_no][]" value=7 >
+    <span class="custom-control-label">
+            7R
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_no][]" value=8 >
+    <span class="custom-control-label">
+            8R
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_no][]" value=9 >
+    <span class="custom-control-label">
+            9R
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_no][]" value=10 >
+    <span class="custom-control-label">
+            10R
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_no][]" value=11 >
+    <span class="custom-control-label">
+            11R
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_no][]" value=12 >
+    <span class="custom-control-label">
+            12R
+        </span>
+</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <div class="form-label">レース種別</div>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_type_id][]" value=1 >
+    <span class="custom-control-label">
+            予選
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_type_id][]" value=2 >
+    <span class="custom-control-label">
+            準優勝戦
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_type_id][]" value=3 >
+    <span class="custom-control-label">
+            優勝戦
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_type_id][]" value=4 >
+    <span class="custom-control-label">
+            一般|他
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[race_type_id][]" value=5 >
+    <span class="custom-control-label">
+            特賞|特選|選抜
+        </span>
+</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <div class="form-label">出場者ランク人数</div>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[rank_summary_id][]" value=1 >
+    <span class="custom-control-label">
+            A0B6
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[rank_summary_id][]" value=2 >
+    <span class="custom-control-label">
+            A1B5
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[rank_summary_id][]" value=3 >
+    <span class="custom-control-label">
+            A2B4
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[rank_summary_id][]" value=4 >
+    <span class="custom-control-label">
+            A3B3
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[rank_summary_id][]" value=5 >
+    <span class="custom-control-label">
+            A4B2
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[rank_summary_id][]" value=6 >
+    <span class="custom-control-label">
+            A5B1
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[rank_summary_id][]" value=7 >
+    <span class="custom-control-label">
+            A6B0
+        </span>
+</label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label class="form-label">進入固定</label>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[entry_fixed_flag][]" value=0 >
+    <span class="custom-control-label">
+            自由
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[entry_fixed_flag][]" value=1 >
+    <span class="custom-control-label">
+            固定
+        </span>
+</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-12" style="margin: 10px 0px;">
+                        <span class="tag">出走者のランクの並びで検索して分析</span>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-2">
+  <div class="form-group">
+    <label class="form-label"><span class="colorinput-color bg-blue-lightest"
+        style="width:3.0rem; height:1.3rem; color:black;"><strong>１号艇</strong></span>のランク</label>
+    <select name="conditions[rank_line_up][]" id="select-beast" class="form-control">
+            <option value="__" >
+        全て</option>
+            <option value="A1" >
+        A1</option>
+            <option value="A2" >
+        A2</option>
+            <option value="B1" >
+        B1</option>
+            <option value="B2" >
+        B2</option>
+            <option value="A_" >
+        A1かA2</option>
+            <option value="B_" >
+        B1かB2</option>
+          </select>
+  </div>
+</div>
+<div class="col-md-2">
+  <div class="form-group">
+    <label class="form-label"><span class="colorinput-color bg-gray-dark"
+        style="width:3.0rem; height:1.3rem;"><strong>２号艇</strong></span>のランク</label>
+    <select name="conditions[rank_line_up][]" id="select-beast" class="form-control">
+            <option value="__" >
+        全て</option>
+            <option value="A1" >
+        A1</option>
+            <option value="A2" >
+        A2</option>
+            <option value="B1" >
+        B1</option>
+            <option value="B2" >
+        B2</option>
+            <option value="A_" >
+        A1かA2</option>
+            <option value="B_" >
+        B1かB2</option>
+          </select>
+  </div>
+</div>
+<div class="col-md-2">
+  <div class="form-group">
+    <label class="form-label"><span class="colorinput-color bg-red"
+        style="width:3.0rem; height:1.3rem;"><strong>３号艇</strong></span>のランク</label>
+    <select name="conditions[rank_line_up][]" id="select-beast" class="form-control">
+            <option value="__" >
+        全て</option>
+            <option value="A1" >
+        A1</option>
+            <option value="A2" >
+        A2</option>
+            <option value="B1" >
+        B1</option>
+            <option value="B2" >
+        B2</option>
+            <option value="A_" >
+        A1かA2</option>
+            <option value="B_" >
+        B1かB2</option>
+          </select>
+  </div>
+</div>
+<div class="col-md-2">
+  <div class="form-group">
+    <label class="form-label"><span class="colorinput-color bg-blue"
+        style="width:3.0rem; height:1.3rem;"><strong>４号艇</strong></span>のランク</label>
+    <select name="conditions[rank_line_up][]" id="select-beast" class="form-control">
+            <option value="__" >
+        全て</option>
+            <option value="A1" >
+        A1</option>
+            <option value="A2" >
+        A2</option>
+            <option value="B1" >
+        B1</option>
+            <option value="B2" >
+        B2</option>
+            <option value="A_" >
+        A1かA2</option>
+            <option value="B_" >
+        B1かB2</option>
+          </select>
+  </div>
+</div>
+<div class="col-md-2">
+  <div class="form-group">
+    <label class="form-label"><span class="colorinput-color bg-yellow"
+        style="width:3.0rem; height:1.3rem; color:black;"><strong>５号艇</strong></span>のランク</label>
+    <select name="conditions[rank_line_up][]" id="select-beast" class="form-control">
+            <option value="__" >
+        全て</option>
+            <option value="A1" >
+        A1</option>
+            <option value="A2" >
+        A2</option>
+            <option value="B1" >
+        B1</option>
+            <option value="B2" >
+        B2</option>
+            <option value="A_" >
+        A1かA2</option>
+            <option value="B_" >
+        B1かB2</option>
+          </select>
+  </div>
+</div>
+<div class="col-md-2">
+  <div class="form-group">
+    <label class="form-label"><span class="colorinput-color bg-green"
+        style="width:3.0rem; height:1.3rem;"><strong>６号艇</strong></span>のランク</label>
+    <select name="conditions[rank_line_up][]" id="select-beast" class="form-control">
+            <option value="__" >
+        全て</option>
+            <option value="A1" >
+        A1</option>
+            <option value="A2" >
+        A2</option>
+            <option value="B1" >
+        B1</option>
+            <option value="B2" >
+        B2</option>
+            <option value="A_" >
+        A1かA2</option>
+            <option value="B_" >
+        B1かB2</option>
+          </select>
+  </div>
+</div>
+                    </div>
+                    <div class="col-md-12" style="margin: 10px 0px;">
+                        <span class="tag">出走・結果情報で検索して分析</span>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <div class="form-label">完走種別</div>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[running_record_id][]" value=1 >
+    <span class="custom-control-label">
+            完走
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[running_record_id][]" value=2 >
+    <span class="custom-control-label">
+            フライング
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[running_record_id][]" value=3 >
+    <span class="custom-control-label">
+            出遅れ
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[running_record_id][]" value=4 >
+    <span class="custom-control-label">
+            失格
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[running_record_id][]" value=5 >
+    <span class="custom-control-label">
+            欠場
+        </span>
+</label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label class="form-label">枠</label>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[waku][]" value=1 >
+    <span class="custom-control-label">
+            1
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[waku][]" value=2 >
+    <span class="custom-control-label">
+            2
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[waku][]" value=3 >
+    <span class="custom-control-label">
+            3
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[waku][]" value=4 >
+    <span class="custom-control-label">
+            4
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[waku][]" value=5 >
+    <span class="custom-control-label">
+            5
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[waku][]" value=6 >
+    <span class="custom-control-label">
+            6
+        </span>
+</label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <div class="form-label">進入</div>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[entry][]" value=1 >
+    <span class="custom-control-label">
+            1
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[entry][]" value=2 >
+    <span class="custom-control-label">
+            2
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[entry][]" value=3 >
+    <span class="custom-control-label">
+            3
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[entry][]" value=4 >
+    <span class="custom-control-label">
+            4
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[entry][]" value=5 >
+    <span class="custom-control-label">
+            5
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[entry][]" value=6 >
+    <span class="custom-control-label">
+            6
+        </span>
+</label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <div class="form-label">着順</div>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[ranking][]" value=1 >
+    <span class="custom-control-label">
+            1
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[ranking][]" value=2 >
+    <span class="custom-control-label">
+            2
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[ranking][]" value=3 >
+    <span class="custom-control-label">
+            3
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[ranking][]" value=4 >
+    <span class="custom-control-label">
+            4
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[ranking][]" value=5 >
+    <span class="custom-control-label">
+            5
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[ranking][]" value=6 >
+    <span class="custom-control-label">
+            6
+        </span>
+</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">決まり手</label>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[kimarite_id][]" value=1 >
+    <span class="custom-control-label">
+            逃げ
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[kimarite_id][]" value=2 >
+    <span class="custom-control-label">
+            まくり
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[kimarite_id][]" value=3 >
+    <span class="custom-control-label">
+            差し
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[kimarite_id][]" value=4 >
+    <span class="custom-control-label">
+            まくり差し
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[kimarite_id][]" value=5 >
+    <span class="custom-control-label">
+            ツケマイ
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[kimarite_id][]" value=6 >
+    <span class="custom-control-label">
+            抜き
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[kimarite_id][]" value=7 >
+    <span class="custom-control-label">
+            恵まれ
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[kimarite_id][]" value=8 >
+    <span class="custom-control-label">
+            その他
+        </span>
+</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-12" style="margin: 10px 0px;">
+                        <span class="tag">気象情報で検索して分析</span>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <div class="form-label">天気</div>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[weather_id][]" value=1 >
+    <span class="custom-control-label">
+            晴
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[weather_id][]" value=2 >
+    <span class="custom-control-label">
+            曇り
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[weather_id][]" value=3 >
+    <span class="custom-control-label">
+            雨
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[weather_id][]" value=4 >
+    <span class="custom-control-label">
+            雪
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[weather_id][]" value=5 >
+    <span class="custom-control-label">
+            霧
+        </span>
+</label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <div class="form-label">風向き</div>
+                                <label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[wind_direction_id][]" value=1 >
+    <span class="custom-control-label">
+            北
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[wind_direction_id][]" value=2 >
+    <span class="custom-control-label">
+            南
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[wind_direction_id][]" value=3 >
+    <span class="custom-control-label">
+            東
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[wind_direction_id][]" value=4 >
+    <span class="custom-control-label">
+            西
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[wind_direction_id][]" value=5 >
+    <span class="custom-control-label">
+            北東
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[wind_direction_id][]" value=6 >
+    <span class="custom-control-label">
+            南東
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[wind_direction_id][]" value=7 >
+    <span class="custom-control-label">
+            北西
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[wind_direction_id][]" value=8 >
+    <span class="custom-control-label">
+            南西
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[wind_direction_id][]" value=9 >
+    <span class="custom-control-label">
+            無風
+        </span>
+</label>
+<label class="custom-control custom-checkbox custom-control-inline">
+    <input type="checkbox" class="custom-control-input" name="conditions[wind_direction_id][]" value=10 >
+    <span class="custom-control-label">
+            その他
+        </span>
+</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="form-label">風速(m)</label>
+                                <div class="row gutters-xs">
+  <div class="col-5">
+    <input type="text" name="conditions[wind_speed][from]" class="form-control" placeholder=0～99 maxlength=2 value="">
+  </div>
+  ～
+  <div class="col-5">
+    <input type="text" name="conditions[wind_speed][to]" class="form-control" placeholder=0～99 maxlength=2 value="">
+  </div>
+</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="form-label">波高(cm)</label>
+                                <div class="row gutters-xs">
+  <div class="col-5">
+    <input type="text" name="conditions[wave][from]" class="form-control" placeholder=0～99 maxlength=2 value="">
+  </div>
+  ～
+  <div class="col-5">
+    <input type="text" name="conditions[wave][to]" class="form-control" placeholder=0～99 maxlength=2 value="">
+  </div>
+</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-12" style="margin: 10px 0px;">
+                        <span class="tag">表示形式</span>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label class="form-label">1ページ詳細表示件数</label>
+                                <select name="display_num" id="display_num" class="form-control ">
+            <option value="ONE_HUNDRED_TWENTY" >120</option>
+        <option value="SIX_HUNDRED" >600</option>
+        <option value="THOUSAND_TWO_HUNDRED" >1200</option>
+        <option value="FIVE_THOUSAND" >5000</option>
+      </select>
+                              </div>
+                        </div>
+                        <div class="col-md-7">
+                            <div class="form-group">
+                                <label class="form-label">並び順</label>
+                                <div class="custom-controls-stacked">
+        <label class="custom-control custom-radio custom-control-inline">
+      <input type="radio" class="custom-control-input" name="sort_order" value="asc" >
+      <span class="custom-control-label">古い日順</span>
+    </label>
+        <label class="custom-control custom-radio custom-control-inline">
+      <input type="radio" class="custom-control-input" name="sort_order" value="desc" checked>
+      <span class="custom-control-label">新しい日順</span>
+    </label>
+      </div>
+                              </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="search_result" class="card-footer text-center">
+                    <button type="submit" class="btn btn-primary ml-auto loading">上記の条件で検索</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+
+    
+        
+
+    
+        
+
+    <div class="col-12">
+        
+        <div class="col-md-12 text-center mb-3">
+    <div class="text-muted">[PR]</div>
+        
+    <a href="https://hb.afl.rakuten.co.jp/hsc/493ccfbb.f746c385.17b171a1.7600056e/?link_type=pict&ut=eyJwYWdlIjoic2hvcCIsInR5cGUiOiJwaWN0IiwiY29sIjoxLCJjYXQiOiIxIiwiYmFuIjozNzM0MjcsImFtcCI6ZmFsc2V9" target="_blank" rel="nofollow sponsored noopener" style="word-wrap:break-word;"><img src="https://hbb.afl.rakuten.co.jp/hsb/493ccfbb.f746c385.17b171a1.7600056e/?me_id=2101008&me_adv_id=373427&t=pict" border="0" style="margin:2px" alt="" title=""></a>
+    </div>
+    </div>
+
+    
+    <div class="col-12">
+        <div class="card">
+            <div class="card-status bg-green"></div>
+            <div class="card-header">
+                <h3 class="card-title">検索結果詳細</h3>
+            </div>
+                        <div class="alert alert-icon alert-danger" role="alert">
+                <i class="fe fe-alert-triangle mr-2" aria-hidden="true"></i> モーターNoと対象期間は必ず入力して検索してください。
+            </div>
+                    </div>
+    </div>
+    
+    <input type="hidden" id="is_login" value="0" />
+</div>
+
+<script src="./assets/js/page/motor_records/main.js?1583883899"></script>
+<script src="./assets/js/page/common.js?1585870137"></script>
+
+
+                </div>
+            </div>
+        </div>
+        <footer class="footer">
+  <div class="container">
+    <div class="row align-items-center flex-row-reverse">
+      <div class="col-auto ml-lg-auto">
+        <div class="row align-items-center">
+          <div class="col-auto">
+            <ul class="list-inline list-inline-dots mb-0">
+              <li class="list-inline-item"><a href="/terms" target="_blank">利用規約</a></li>
+              <li class="list-inline-item"><a href="/privacy" target="_blank">プライバシーポリシー</a></li>
+              <li class="list-inline-item"><a href="/tokutei" target="_blank">特定商取引に関する表記</a></li>
+                          </ul>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-lg-auto mt-3 mt-lg-0 text-center">
+        Copyright © 2020 murao111.net All rights reserved.
+      </div>
+    </div>
+  </div>
+</footer>
+    </div>
+</body>
+
+</html>

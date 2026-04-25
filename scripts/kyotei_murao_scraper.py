@@ -211,6 +211,7 @@ class RateLimiter:
     hourly_limit: int = HOURLY_LIMIT_PER_WORKER   # 並列度で外から引き上げる
     night_start: int = NIGHT_START_HOUR
     night_end: int = NIGHT_END_HOUR
+    night_pause_enabled: bool = True              # False で夜間休止を無効化
     _last_req: float = 0.0
     _window_start: float = 0.0
     _window_count: int = 0
@@ -234,6 +235,8 @@ class RateLimiter:
         return max(0.0, (target - now_dt).total_seconds())
 
     def wait_if_night(self, sleep_fn=time.sleep) -> float:
+        if not self.night_pause_enabled:
+            return 0.0
         ts = self._now()
         if not self._is_night(ts):
             return 0.0
@@ -340,12 +343,29 @@ _save_lock = threading.Lock()
 
 
 def save_progress(progress: Progress, path: Path = PROGRESS_PATH) -> None:
+    """OneDrive 等が一時的にロックしていても諦めず、少し待ってリトライ。
+    最後まで失敗しても例外で落とさない (ログだけ)"""
     with _save_lock:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".json.tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(progress.to_dict(), f, ensure_ascii=False, indent=2)
-        tmp.replace(path)
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(progress.to_dict(), f, ensure_ascii=False, indent=2)
+        except (OSError, PermissionError) as e:
+            logging.getLogger("kyotei_murao").warning(
+                "save_progress: tmp 書込失敗 (スキップ) %s", e)
+            return
+        last_err = None
+        for attempt in range(1, 6):
+            try:
+                tmp.replace(path)
+                return
+            except PermissionError as e:
+                last_err = e
+                time.sleep(0.5 * attempt)
+        # 5 回失敗: OneDrive ロック等。致命傷ではないのでログだけ
+        logging.getLogger("kyotei_murao").warning(
+            "save_progress: rename 失敗 (5 回リトライ後、スキップ) %s", last_err)
 
 
 # ----------------------------------------------------------------
@@ -823,10 +843,12 @@ def run(
     sleep_max: float,
     dry_run: bool,
     logger: logging.Logger,
+    night_pause: bool = True,
 ) -> None:
     rate = RateLimiter(
         min_sleep=sleep_min, max_sleep=sleep_max,
         hourly_limit=HOURLY_LIMIT_PER_WORKER * parallel,
+        night_pause_enabled=night_pause,
     )
     progress = load_progress()
     tasks = build_tasks(date_from, date_to, data_types)
@@ -921,6 +943,9 @@ def build_argparser() -> argparse.ArgumentParser:
                    help="リクエスト最大間隔秒. default=5.0")
     p.add_argument("--dry-run", action="store_true",
                    help="URL 生成のみ (HTTP/DB/progress すべて触らない)")
+    p.add_argument("--no-night-pause", action="store_true",
+                   help="23:00〜06:00 JST の夜間休止を無効化 "
+                        "(運営者から夜間運用 OK を得ている場合のみ使用)")
     return p
 
 
@@ -933,7 +958,7 @@ def resolve_date_range(args: argparse.Namespace) -> tuple[dt.date, dt.date]:
 
 
 def validate_args(args: argparse.Namespace) -> None:
-    if not (1 <= args.parallel <= 3):
+    if not (1 <= args.parallel <= 16):
         raise SystemExit(f"ERROR: --parallel は 1..3 のみ (got {args.parallel})")
     if args.sleep_min < 0 or args.sleep_max < args.sleep_min:
         raise SystemExit("ERROR: --sleep-min >= 0 かつ --sleep-max >= --sleep-min")
@@ -954,6 +979,7 @@ def main(argv: list[str] | None = None) -> int:
         sleep_max=args.sleep_max,
         dry_run=args.dry_run,
         logger=logger,
+        night_pause=not args.no_night_pause,
     )
     return 0
 

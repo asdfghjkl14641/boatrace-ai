@@ -36,3 +36,15 @@ boatrace.db
 boatrace.db-journal
 boatrace.db-wal
 boatrace.db-shm
+
+# DB バックアップ・テスト DB (巨大)
+boatrace_backup_*.db
+test_artifact*.db
+daily_*.db
+
+# GH Actions artifact DB (各 30-400MB)
+bulk_db/
+bulk_db_kv2/
+phase2_db/
+sampling_db/
+sampling_db_kv2/
