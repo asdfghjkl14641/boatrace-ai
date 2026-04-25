@@ -48,3 +48,7 @@ bulk_db_kv2/
 phase2_db/
 sampling_db/
 sampling_db_kv2/
+
+# 進捗 JSON (GH Actions では空から開始すべき)
+scripts/*_progress.json
+scripts/*_progress_*.json
