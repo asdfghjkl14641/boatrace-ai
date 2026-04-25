@@ -1,0 +1,129 @@
+# ============================================================
+# 単勝・複勝オッズの backfill (boatrace.jp スクレイピング)
+# ------------------------------------------------------------
+# 目的:
+#   - ローカルでは長時間実行が難しいので GH Actions で分割実行
+#   - 結果を artifact.db (SQLite) として配布
+#   - ローカルで scripts/merge_sqlite.py で本 DB にマージ
+#
+# 使い方:
+#   1. Actions → "Win/Place Odds Backfill" → "Run workflow"
+#   2. start / end / parallel を指定 (例: 2025-04-01 / 2025-05-31 / 3)
+#   3. 完了後、artifact をダウンロード
+#   4. ローカル: python -m scripts.merge_sqlite path/to/artifact.db
+#
+# 推奨期間分割: 2 ヶ月/ジョブ × 7 ジョブ = 全 13 ヶ月
+# ============================================================
+name: Win/Place Odds Backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "開始日 YYYY-MM-DD"
+        required: true
+      end:
+        description: "終了日 YYYY-MM-DD"
+        required: true
+      parallel:
+        description: "並列度 (1-10, 推奨 3-5)"
+        required: false
+        default: "3"
+      sleep_min:
+        description: "min sleep 秒 (推奨 1.0)"
+        required: false
+        default: "1.0"
+      sleep_max:
+        description: "max sleep 秒 (推奨 1.5)"
+        required: false
+        default: "1.5"
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    env:
+      DB_MODE: sqlite
+      SQLITE_PATH: artifact.db
+      TZ: Asia/Tokyo
+      PYTHONIOENCODING: utf-8
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 依存をインストール
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 空の artifact.db にスキーマ適用
+        run: |
+          rm -f artifact.db
+          python -c "
+          import sqlite3
+          conn = sqlite3.connect('artifact.db')
+          with open('sql/sqlite_schema.sql', encoding='utf-8') as f:
+              conn.executescript(f.read())
+          conn.commit(); conn.close()
+          print('artifact.db created')
+          "
+
+      - name: 単勝・複勝オッズ取得
+        run: |
+          python -m scripts.win_place_backfill \
+            --from-date "${{ github.event.inputs.start }}" \
+            --to-date   "${{ github.event.inputs.end }}" \
+            --parallel  "${{ github.event.inputs.parallel }}" \
+            --sleep-min "${{ github.event.inputs.sleep_min }}" \
+            --sleep-max "${{ github.event.inputs.sleep_max }}"
+
+      - name: artifact.db を VACUUM
+        if: always()
+        run: |
+          python -c "
+          import sqlite3, os
+          if os.path.exists('artifact.db'):
+              conn = sqlite3.connect('artifact.db')
+              conn.execute('VACUUM')
+              conn.close()
+              print(f'final size: {os.path.getsize(\"artifact.db\")/1024/1024:.2f} MB')
+          " || true
+
+      - name: アーティファクトとしてアップロード
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: winplace-${{ github.event.inputs.start }}-${{ github.event.inputs.end }}
+          path: |
+            artifact.db
+            scripts/win_place_backfill_progress.json
+            logs/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: サマリ出力
+        if: always()
+        run: |
+          echo "### 取得サマリ ${{ github.event.inputs.start }} 〜 ${{ github.event.inputs.end }}" >> $GITHUB_STEP_SUMMARY
+          python -c "
+          import sqlite3
+          conn = sqlite3.connect('artifact.db')
+          for t in ('win_odds','place_odds'):
+              try:
+                  n = conn.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0]
+                  races = conn.execute(f'SELECT COUNT(DISTINCT date||stadium||race_number) FROM {t}').fetchone()[0]
+                  mn, mx = conn.execute(f'SELECT MIN(date), MAX(date) FROM {t}').fetchone()
+                  print(f'- {t}: {n:,} rows, {races:,} races ({mn} 〜 {mx})')
+              except Exception as e:
+                  print(f'- {t}: skipped ({e})')
+          conn.close()
+          " >> $GITHUB_STEP_SUMMARY

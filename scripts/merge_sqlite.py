@@ -105,6 +105,22 @@ MERGE_SQL = {
             display_time_4, display_time_5, display_time_6
         FROM src.race_conditions
     """,
+    # win_odds: 既存保持 (UNIQUE: date, stadium, race_number, boat_number)
+    "win_odds": """
+        INSERT OR IGNORE INTO win_odds (
+            date, stadium, stadium_name, race_number, boat_number, odds
+        )
+        SELECT date, stadium, stadium_name, race_number, boat_number, odds
+        FROM src.win_odds
+    """,
+    # place_odds: 同上
+    "place_odds": """
+        INSERT OR IGNORE INTO place_odds (
+            date, stadium, stadium_name, race_number, boat_number, odds
+        )
+        SELECT date, stadium, stadium_name, race_number, boat_number, odds
+        FROM src.place_odds
+    """,
 }
 
 
